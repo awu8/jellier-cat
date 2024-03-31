@@ -9,7 +9,7 @@ class Node {
   }
   update() {
     if(this.fixed) return;
-    this.acc.add(new Vector(0, 0.2));
+    this.acc.add(new Vector(0, 0.1));
     // if(this.acc.mag() > 5) this.acc.setMag(5);
     if(this.vel.mag() > 7) this.vel.setMag(7);
     this.vel.add(this.acc);
@@ -122,6 +122,12 @@ function convexHull(points) {
   var n = points.length;
   var hull = [];
 
+  function removeMiddle(a, b, c) {
+    var cross = (a.x - b.x) * (c.y - b.y) - (a.y - b.y) * (c.x - b.x);
+    var dot = (a.x - b.x) * (c.x - b.x) + (a.y - b.y) * (c.y - b.y);
+    return cross < 0 || cross == 0 && dot <= 0;
+  }
+
   for (var i = 0; i < 2 * n; i++) {
     var j = i < n ? i : 2 * n - 1 - i;
     while (hull.length >= 2 && removeMiddle(hull[hull.length - 2], hull[hull.length - 1], points[j]))
@@ -131,12 +137,6 @@ function convexHull(points) {
 
   hull.pop();
   return hull;
-}
-
-function removeMiddle(a, b, c) {
-  var cross = (a.x - b.x) * (c.y - b.y) - (a.y - b.y) * (c.x - b.x);
-  var dot = (a.x - b.x) * (c.x - b.x) + (a.y - b.y) * (c.y - b.y);
-  return cross < 0 || cross == 0 && dot <= 0;
 }
 
 createCanvas(800, 800);
@@ -170,15 +170,40 @@ function main() {
     }
   } else {
     const points = nodes.map(node => node.pos);
-    const hull = convexHull(points);
-    stroke(0);
-    strokeWeight(8);
+    let hull = convexHull(points);
     fill(255);
+    noStroke();
     beginShape();
     for(const point of hull) {
       vertex(point.x, point.y);
     }
     endShape(CLOSE);
+    // stroke(0, 0, 0, 128);
+    stroke(0);
+    strokeWeight(8);
+    const h = i => hull[(i + hull.length) % hull.length];
+    let hull2 = [];
+    for(let i = 0; i < hull.length; i++) {
+      hull2.push(h(i));
+      let num = round(h(i).dist(h(i + 1)) / 5);
+      for(let j = 1; j < num; j++) {
+        hull2.push(Vector.sub(h(i + 1), h(i)).mult(j / num).add(h(i)));
+      }
+    }
+    hull = hull2;
+    for(let _ = 0; _ < 3; _++) {
+      hull2 = [];
+      for(let i = 0; i < hull.length; i++) {
+        hull2.push(Vector.add(Vector.add(h(i), h(i + 1)), h(i - 1)).div(3));
+      }
+      hull = hull2;
+    }
+    for(let i = 0; i < hull.length; i++) {
+      // stroke(255, 0, 0);
+      // point(h(i).x, h(i).y);
+      line(h(i).x, h(i).y, h(i + 1).x, h(i + 1).y);
+      // bezier(h(i).x, h(i).y, h(i + 1).x, h(i + 1).y, h(i + 1).x, h(i + 1).y, h(i + 2).x, h(i + 2).y);
+    }
   }
   // setTimeout(main, !mouseIsPressed ? 50 : 1000);
   requestAnimationFrame(main);
