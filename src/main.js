@@ -15,9 +15,10 @@ class Node {
     // if(this.acc.mag() > 5) this.acc.setMag(5);
     // if(this.vel.mag() > 7) this.vel.setMag(7);
     this.vel.add(this.acc);
-    this.vel.mult(0.95);
-    if(this.pos.y > 700 - 4 && this.vel.y > 0) {
-      this.vel.y *= -0.1;
+    this.vel.mult(0.99);
+    if(this.pos.y > 700 - 4) {
+      this.vel.y *= 0.8;
+      if(this.vel.y > 0) this.vel.y *= -0.3;
     }
     this.pos.add(this.vel);
     this.acc.mult(0);
@@ -48,6 +49,9 @@ class Edge {
     this.n1.acc.add(sep);
     sep.mult(-1);
     this.n2.acc.add(sep);
+    const veldiff = Vector.sub(this.n2.vel, this.n1.vel);
+    this.n1.acc.add(veldiff.mult(0.4));
+    this.n2.acc.add(veldiff.mult(-0.4));
   }
   draw() {
     stroke(0);
@@ -57,26 +61,17 @@ class Edge {
 }
 
 const amul = 0.3;
-const rmul = 0.4;
+const rmul = 0.3;
 
 const targetArea = 25000;
 
 const nodes = [];
 const edges = [];
-for(let i = 0; i < 10; i++) {
-  nodes.push(new Node(new Vector(100 + i * 10, 100), false));
-}
-for(let i = 0; i < 10; i++) {
-  nodes.push(new Node(new Vector(200, 100 + i * 10), false));
-}
-for(let i = 0; i < 10; i++) {
-  nodes.push(new Node(new Vector(200 - i * 10, 200), false));
-}
-for(let i = 0; i < 10; i++) {
-  nodes.push(new Node(new Vector(100, 200 - i * 10), false));
+for(let i = 0; i < 40; i++) {
+  nodes.push(new Node(new Vector(150, 150).add(new Vector(0, 89).rotate(pi / 20 * i)), false));
 }
 for(let i = 0; i < nodes.length; i++) {
-  edges.push(new Edge(nodes[i], nodes[(i + 1) % nodes.length], 3, amul, rmul));
+  edges.push(new Edge(nodes[i], nodes[(i + 1) % nodes.length], 1, amul, rmul));
 }
 const orderednodes = [...nodes];
 
@@ -114,7 +109,7 @@ function main() {
   if(mouseIsPressed) {
     for(const node of nodes) {
       const d = new Vector(mouseX - pmouseX, mouseY - pmouseY);
-      // if(d.mag() > 4) d.setMag(4);
+      if(d.mag() > 10) d.setMag(10);
       node.acc.add(d.mult(20 / max(80, Vector.sub(new Vector(mouseX, mouseY), node.pos).mag())));
     }
   }
@@ -182,7 +177,6 @@ function main() {
       // bezier(h(i).x, h(i).y, h(i + 1).x, h(i + 1).y, h(i + 1).x, h(i + 1).y, h(i + 2).x, h(i + 2).y);
     }
   }
-  // setTimeout(main, !mouseIsPressed ? 50 : 1000);
   requestAnimationFrame(main);
 }
 
