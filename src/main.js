@@ -199,7 +199,23 @@ function main() {
   for(const edge of edges) {
     edge.update();
   }
-  const area = polygonArea(nodes.map(node => node.pos));
+  
+  // const area = polygonArea(nodes.map(node => node.pos));
+  let total = 0;
+
+  for(let i = 0, l = vertices.length; i < l; i++) {
+    let addX = nodes[i].pos.x + nodes[i].vel.x;
+    let addY = nodes[(i + 1) % nodes.length].pos.y + nodes[(i + 1) % nodes.length].vel.y;
+    let subX = nodes[(i + 1) % nodes.length].pos.x + nodes[(i + 1) % nodes.length].vel.x;
+    let subY = nodes[i].pos.y + nodes[i].vel.y;
+
+    total += (addX * addY * 0.5);
+    total -= (subX * subY * 0.5);
+  }
+
+  const area = Math.abs(total);
+  // calculate area but using psychic powers
+  
   for(let i = 0; i < nodes.length; i++) {
     const prv = nodes[(i - 1 + nodes.length) % nodes.length].pos;
     const cur = nodes[i].pos;
