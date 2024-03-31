@@ -114,12 +114,37 @@ function shuffle(a) {
   }
 }
 
+function convexHull(points) {
+  points.sort(function (a, b) {
+    return a.x != b.x ? a.x - b.x : a.y - b.y;
+  });
+
+  var n = points.length;
+  var hull = [];
+
+  for (var i = 0; i < 2 * n; i++) {
+    var j = i < n ? i : 2 * n - 1 - i;
+    while (hull.length >= 2 && removeMiddle(hull[hull.length - 2], hull[hull.length - 1], points[j]))
+      hull.pop();
+    hull.push(points[j]);
+  }
+
+  hull.pop();
+  return hull;
+}
+
+function removeMiddle(a, b, c) {
+  var cross = (a.x - b.x) * (c.y - b.y) - (a.y - b.y) * (c.x - b.x);
+  var dot = (a.x - b.x) * (c.x - b.x) + (a.y - b.y) * (c.y - b.y);
+  return cross < 0 || cross == 0 && dot <= 0;
+}
+
 createCanvas(800, 800);
 
 function main() {
   background(255);
-  fill(0);
-  strokeWeight(0);
+  fill(100);
+  noStroke();
   rect(0, 700, 800, 100);
   shuffle(edges);
   if(mouseIsPressed) {
@@ -134,23 +159,26 @@ function main() {
   }
   shuffle(nodes);
   for(const node of nodes) {
-    // const oldPos = node.pos.copy();
-    // const oldVel = node.vel.copy();
     node.update();
-    // for(const node2 of nodes) {
-    //   if(node === node2) {
-    //     continue;
-    //   }
-    //   if(node2.pos.dist(node.pos) < 6) {wsl
-    //     node.pos = oldPos;
-    //     node.vel = oldVel;
-    //     break;
-    //   }
-    // }
-    node.draw();
   }
-  for(const edge of edges) {
-    edge.draw();
+  if(keyIsPressed) {
+    for(const edge of edges) {
+      edge.draw();
+    }
+    for(const node of nodes) {
+      node.draw();
+    }
+  } else {
+    const points = nodes.map(node => node.pos);
+    const hull = convexHull(points);
+    stroke(0);
+    strokeWeight(8);
+    fill(255);
+    beginShape();
+    for(const point of hull) {
+      vertex(point.x, point.y);
+    }
+    endShape(CLOSE);
   }
   // setTimeout(main, !mouseIsPressed ? 50 : 1000);
   requestAnimationFrame(main);
