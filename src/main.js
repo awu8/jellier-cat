@@ -9,12 +9,12 @@ class Node {
     this.acc = new Vector(0, 0);
     this.fixed = fixed;
   }
-  update() {
+  update(substeps) {
     if(this.fixed) return;
     // if(this.acc.mag() > 5) this.acc.setMag(5);
     // if(this.vel.mag() > 7) this.vel.setMag(7);
-    this.vel.mult(0.99);
-    this.pos.add(this.vel);
+    this.vel.mult(Math.pow(0.99, 1 / substeps));
+    this.pos.add(Vector.mult(this.vel, 1 / substeps));
     this.acc.mult(0);
   }
   draw() {
@@ -123,7 +123,6 @@ for(let i = 0; i < 40; i++) {
 for(let i = 0; i < nodes.length; i++) {
   edges.push(new Edge(nodes[i], nodes[(i + 1) % nodes.length], 1, amul, rmul));
 }
-const orderednodes = [...nodes];
 
 function shuffle(a) {
   for(let i = a.length - 1; i > 0; i--) {
@@ -200,29 +199,30 @@ function main() {
   for(const edge of edges) {
     edge.update();
   }
-  const area = polygonArea(orderednodes.map(node => node.pos));
+  const area = polygonArea(nodes.map(node => node.pos));
   for(let i = 0; i < nodes.length; i++) {
-    const prv = orderednodes[(i - 1 + nodes.length) % nodes.length].pos;
-    const cur = orderednodes[i].pos;
-    const nxt = orderednodes[(i + 1) % nodes.length].pos;
+    const prv = nodes[(i - 1 + nodes.length) % nodes.length].pos;
+    const cur = nodes[i].pos;
+    const nxt = nodes[(i + 1) % nodes.length].pos;
     const norm1 = Vector.sub(cur, nxt).rotate(pi / 2).normalize();
     const norm2 = Vector.sub(prv, cur).rotate(pi / 2).normalize();
     bisectors[i] = norm1.add(norm2).normalize();
     const force = (targetArea - area) * 0.001;
-    orderednodes[i].acc.add(bisectors[i].copy().mult(force));
+    nodes[i].acc.add(bisectors[i].copy().mult(force));
   }
   for(const node of nodes) {
     node.acc.add(new Vector(0, 0.2));
     node.vel.add(node.acc);
   }
-  for(const poly of polys) {
-    for(const node of nodes) {
-      poly.collision(node);
+  for(let _ = 0; _ < 10; _++) {
+    for(const poly of polys) {
+      for(const node of nodes) {
+        poly.collision(node);
+      }
     }
-  }
-  shuffle(nodes);
-  for(const node of nodes) {
-    node.update();
+    for(const node of nodes) {
+      node.update(10);
+    }
   }
   if(keyIsPressed) {
     for(const edge of edges) {
@@ -234,12 +234,12 @@ function main() {
     stroke(255, 0, 0);
     strokeWeight(1);
     for(let i = 0; i < nodes.length; i++) {
-      const cur = orderednodes[i].pos;
+      const cur = nodes[i].pos;
       const bisector = bisectors[i];
       line(cur.x, cur.y, cur.x + bisector.x * 50, cur.y + bisector.y * 50);
     }
   } else {
-    let hull = orderednodes.map(node => node.pos);
+    let hull = nodes.map(node => node.pos);
     fill(255);
     noStroke();
     beginShape();
