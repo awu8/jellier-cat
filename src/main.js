@@ -1,5 +1,7 @@
 new Q5("global");
 
+const pi = Math.PI;
+
 class Node {
   constructor(pos, fixed = false) {
     this.pos = pos;
@@ -9,11 +11,11 @@ class Node {
   }
   update() {
     if(this.fixed) return;
-    this.acc.add(new Vector(0, 0.1));
+    this.acc.add(new Vector(0, 0.2));
     // if(this.acc.mag() > 5) this.acc.setMag(5);
-    if(this.vel.mag() > 7) this.vel.setMag(7);
+    // if(this.vel.mag() > 7) this.vel.setMag(7);
     this.vel.add(this.acc);
-    this.vel.mult(0.97);
+    this.vel.mult(0.95);
     if(this.pos.y > 700 - 4 && this.vel.y > 0) {
       this.vel.y *= -0.1;
     }
@@ -39,8 +41,8 @@ class Edge {
     const sep = Vector.sub(this.n2.pos, this.n1.pos);
     const dist = sep.mag();
     let force;
-    if(dist < this.len) force = min(0, dist - max(6, this.len - 10)) * rmul;
-    else force = max(0, dist - (this.len + 10)) * amul;
+    if(dist < this.len) force = min(0, dist - max(6, this.len)) * rmul;
+    else force = max(0, dist - (this.len)) * amul;
     sep.normalize();
     sep.mult(force);
     this.n1.acc.add(sep);
@@ -54,58 +56,29 @@ class Edge {
   }
 }
 
-const amul = 0.1;
+const amul = 0.3;
 const rmul = 0.4;
+
+const targetArea = 25000;
 
 const nodes = [];
 const edges = [];
-// for(let i = 0; i < 10; i++) {
-//   for(let j = 0; j < 10; j++) {
-//     nodes.push(new Node(new Vector(100 + i * 20 + random() * 5, 100 + j * 20 + random() * 5)));
-//     if(i) {
-//       edges.push(new Edge(nodes[i * 10 + j], nodes[(i - 1) * 10 + j], 20, amul, rmul));
-//     }
-//     if(j) {
-//       edges.push(new Edge(nodes[i * 10 + j], nodes[i * 10 + j - 1], 20, amul, rmul));
-//     }
-//     if(i && j) {
-//       edges.push(new Edge(nodes[i * 10 + j], nodes[(i - 1) * 10 + j - 1], 20 * sqrt(2), amul, rmul));
-//       edges.push(new Edge(nodes[i * 10 + j - 1], nodes[(i - 1) * 10 + j], 20 * sqrt(2), amul, rmul));
-//     }
-//     if(i && j > 1) {
-//       edges.push(new Edge(nodes[i * 10 + j], nodes[(i - 1) * 10 + j - 2], 20 * sqrt(5), amul, rmul));
-//       edges.push(new Edge(nodes[i * 10 + j - 2], nodes[(i - 1) * 10 + j], 20 * sqrt(5), amul, rmul));
-//     }
-//     if(i > 1 && j) {
-//       edges.push(new Edge(nodes[i * 10 + j], nodes[(i - 2) * 10 + j - 1], 20 * sqrt(5), amul, rmul));
-//       edges.push(new Edge(nodes[i * 10 + j - 1], nodes[(i - 2) * 10 + j], 20 * sqrt(5), amul, rmul));
-//     }
-//     if(i > 1) {
-//       edges.push(new Edge(nodes[i * 10 + j], nodes[(i - 2) * 10 + j], 40, amul, rmul));
-//     }
-//     if(j > 1) {
-//       edges.push(new Edge(nodes[i * 10 + j], nodes[i * 10 + j - 2], 40, amul, rmul));
-//     }
-//   }
-// }
-
-const r = 200;
-for(let i = 0; i < 100000; i++) {
-  let pos = new Vector(100 + random() * r, 100 + random() * r);
-  if(new Vector(100 + r / 2, 100 + r / 2).dist(pos) > r / 2 || nodes.some(node => node.pos.dist(pos) < 12)) continue;
-  nodes.push(new Node(pos));
+for(let i = 0; i < 10; i++) {
+  nodes.push(new Node(new Vector(100 + i * 10, 100), false));
 }
-console.log(nodes.length);
-
+for(let i = 0; i < 10; i++) {
+  nodes.push(new Node(new Vector(200, 100 + i * 10), false));
+}
+for(let i = 0; i < 10; i++) {
+  nodes.push(new Node(new Vector(200 - i * 10, 200), false));
+}
+for(let i = 0; i < 10; i++) {
+  nodes.push(new Node(new Vector(100, 200 - i * 10), false));
+}
 for(let i = 0; i < nodes.length; i++) {
-  for(let j = i + 1; j < nodes.length; j++) {
-    edges.push(new Edge(nodes[i], nodes[j], nodes[i].pos.dist(nodes[j].pos), amul, rmul));
-  }
+  edges.push(new Edge(nodes[i], nodes[(i + 1) % nodes.length], 3, amul, rmul));
 }
-console.log(edges.length);
-edges.sort((a, b) => a.len - b.len);
-edges.length = floor(Math.pow(nodes.length, 1.3) * 3);
-console.log(edges.length);
+const orderednodes = [...nodes];
 
 function shuffle(a) {
   for(let i = a.length - 1; i > 0; i--) {
@@ -114,29 +87,20 @@ function shuffle(a) {
   }
 }
 
-function convexHull(points) {
-  points.sort(function (a, b) {
-    return a.x != b.x ? a.x - b.x : a.y - b.y;
-  });
+function polygonArea(vertices) {
+  let total = 0;
 
-  var n = points.length;
-  var hull = [];
+  for(let i = 0, l = vertices.length; i < l; i++) {
+    let addX = vertices[i].x;
+    let addY = vertices[i == vertices.length - 1 ? 0 : i + 1].y;
+    let subX = vertices[i == vertices.length - 1 ? 0 : i + 1].x;
+    let subY = vertices[i].y;
 
-  function removeMiddle(a, b, c) {
-    var cross = (a.x - b.x) * (c.y - b.y) - (a.y - b.y) * (c.x - b.x);
-    var dot = (a.x - b.x) * (c.x - b.x) + (a.y - b.y) * (c.y - b.y);
-    return cross < 0 || cross == 0 && dot <= 0;
+    total += (addX * addY * 0.5);
+    total -= (subX * subY * 0.5);
   }
 
-  for (var i = 0; i < 2 * n; i++) {
-    var j = i < n ? i : 2 * n - 1 - i;
-    while (hull.length >= 2 && removeMiddle(hull[hull.length - 2], hull[hull.length - 1], points[j]))
-      hull.pop();
-    hull.push(points[j]);
-  }
-
-  hull.pop();
-  return hull;
+  return Math.abs(total);
 }
 
 createCanvas(800, 800);
@@ -150,12 +114,26 @@ function main() {
   if(mouseIsPressed) {
     for(const node of nodes) {
       const d = new Vector(mouseX - pmouseX, mouseY - pmouseY);
-      if(d.mag() > 4) d.setMag(4);
+      // if(d.mag() > 4) d.setMag(4);
       node.acc.add(d.mult(20 / max(80, Vector.sub(new Vector(mouseX, mouseY), node.pos).mag())));
     }
   }
   for(const edge of edges) {
     edge.update();
+  }
+  const area = polygonArea(orderednodes.map(node => node.pos));
+  for(let i = 0; i < nodes.length; i++) {
+    const prv = orderednodes[(i - 1 + nodes.length) % nodes.length].pos;
+    const cur = orderednodes[i].pos;
+    const nxt = orderednodes[(i + 1) % nodes.length].pos;
+    const norm1 = Vector.sub(cur, nxt).rotate(pi / 2).normalize();
+    const norm2 = Vector.sub(prv, cur).rotate(pi / 2).normalize();
+    const bisector = norm1.add(norm2).normalize();
+    stroke(255, 0, 0);
+    strokeWeight(1);
+    if(keyIsPressed) line(cur.x, cur.y, cur.x + norm1.x * 50, cur.y + norm1.y * 50);
+    const force = (targetArea - area) * 0.001;
+    orderednodes[i].acc.add(bisector.mult(force));
   }
   shuffle(nodes);
   for(const node of nodes) {
@@ -169,8 +147,7 @@ function main() {
       node.draw();
     }
   } else {
-    const points = nodes.map(node => node.pos);
-    let hull = convexHull(points);
+    let hull = orderednodes.map(node => node.pos);
     fill(255);
     noStroke();
     beginShape();
