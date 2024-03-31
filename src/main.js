@@ -11,15 +11,9 @@ class Node {
   }
   update() {
     if(this.fixed) return;
-    this.acc.add(new Vector(0, 0.2));
     // if(this.acc.mag() > 5) this.acc.setMag(5);
     // if(this.vel.mag() > 7) this.vel.setMag(7);
-    this.vel.add(this.acc);
     this.vel.mult(0.99);
-    if(this.pos.y > 700 - 4) {
-      this.vel.y *= 0.8;
-      if(this.vel.y > 0) this.vel.y *= -0.3;
-    }
     this.pos.add(this.vel);
     this.acc.mult(0);
   }
@@ -57,6 +51,62 @@ class Edge {
     stroke(0);
     strokeWeight(0.5);
     line(this.n1.pos.x, this.n1.pos.y, this.n2.pos.x, this.n2.pos.y);
+  }
+}
+
+function sqr(x) { return x * x }
+function dist2(v, w) { return sqr(v.x - w.x) + sqr(v.y - w.y) }
+function distToSegmentSquared(p, v, w) {
+  var l2 = dist2(v, w);
+  if (l2 == 0) return dist2(p, v);
+  var t = ((p.x - v.x) * (w.x - v.x) + (p.y - v.y) * (w.y - v.y)) / l2;
+  t = Math.max(0, Math.min(1, t));
+  return dist2(p, { x: v.x + t * (w.x - v.x),
+                    y: v.y + t * (w.y - v.y) });
+}
+function distToSegment(p, v, w) { return Math.sqrt(distToSegmentSquared(p, v, w)); }
+
+function decompose(vec, norm) {
+  norm.normalize();
+  const proj = norm.copy().mult(vec.dot(norm));
+  const perp = vec.copy().sub(proj);
+  return [proj, perp];
+}
+
+class Line {
+  constructor(start, end) {
+    this.start = start;
+    this.end = end;
+  }
+  collision(node) {
+    if(distToSegment(node.pos, this.start, this.end) < 14) {
+      const [proj, perp] = decompose(node.vel, Vector.sub(this.end, this.start));
+      node.vel = perp.copy().mult(perp.angleBetween(Vector.sub(this.end, this.start).rotate(pi / 2)) < 0.1 ? -0.5 : 1).add(proj);
+    }
+  }
+  draw() {
+    stroke(0);
+    strokeWeight(20);
+    line(this.start.x, this.start.y, this.end.x, this.end.y);
+  }
+}
+
+class Polygon {
+  constructor(vertices) {
+    this.lines = [];
+    for(let i = 0; i < vertices.length; i++) {
+      this.lines.push(new Line(vertices[i], vertices[(i + 1) % vertices.length]));
+    }
+  }
+  collision(node) {
+    for(const line of this.lines) {
+      line.collision(node);
+    }
+  }
+  draw() {
+    for(const line of this.lines) {
+      line.draw();
+    }
   }
 }
 
@@ -98,13 +148,47 @@ function polygonArea(vertices) {
   return Math.abs(total);
 }
 
-createCanvas(800, 800);
+const bisectors = [];
+for(let i = 0; i < nodes.length; i++) {
+  bisectors.push(new Vector(0, 0));
+}
+
+const width = windowWidth - 50;
+const height = windowHeight - 50;
+
+const polys = [];
+polys.push(new Polygon([new Vector(-500, height - 50),
+                        new Vector(width + 500, height - 50),
+                        new Vector(width + 500, height),
+                        new Vector(-500, height),]));
+polys.push(new Polygon([new Vector(-500, -500),
+                        new Vector(0, -500),
+                        new Vector(0, height),
+                        new Vector(-500, height),]));
+polys.push(new Polygon([new Vector(width, -500),
+                        new Vector(width + 500, -500),
+                        new Vector(width + 500, height),
+                        new Vector(width, height),]));
+polys.push(new Polygon([new Vector(-500, -500),
+                        new Vector(width + 500, -500),
+                        new Vector(width + 500, 0),
+                        new Vector(-500, 0),]));
+polys.push(new Polygon([new Vector(100, 400),
+                        new Vector(400, 500),
+                        new Vector(100, 600),]));
+polys.push(new Polygon([new Vector(700, -100),
+                        new Vector(800, -100),
+                        new Vector(800, height - 80),
+                        new Vector(700, height - 80),]));
+
+createCanvas(width, height);
 
 function main() {
   background(255);
+  stroke(0);
+  strokeWeight(2);
   fill(100);
   noStroke();
-  rect(0, 700, 800, 100);
   shuffle(edges);
   if(mouseIsPressed) {
     for(const node of nodes) {
@@ -123,12 +207,18 @@ function main() {
     const nxt = orderednodes[(i + 1) % nodes.length].pos;
     const norm1 = Vector.sub(cur, nxt).rotate(pi / 2).normalize();
     const norm2 = Vector.sub(prv, cur).rotate(pi / 2).normalize();
-    const bisector = norm1.add(norm2).normalize();
-    stroke(255, 0, 0);
-    strokeWeight(1);
-    if(keyIsPressed) line(cur.x, cur.y, cur.x + norm1.x * 50, cur.y + norm1.y * 50);
+    bisectors[i] = norm1.add(norm2).normalize();
     const force = (targetArea - area) * 0.001;
-    orderednodes[i].acc.add(bisector.mult(force));
+    orderednodes[i].acc.add(bisectors[i].copy().mult(force));
+  }
+  for(const node of nodes) {
+    node.acc.add(new Vector(0, 0.2));
+    node.vel.add(node.acc);
+  }
+  for(const poly of polys) {
+    for(const node of nodes) {
+      poly.collision(node);
+    }
   }
   shuffle(nodes);
   for(const node of nodes) {
@@ -141,6 +231,13 @@ function main() {
     for(const node of nodes) {
       node.draw();
     }
+    stroke(255, 0, 0);
+    strokeWeight(1);
+    for(let i = 0; i < nodes.length; i++) {
+      const cur = orderednodes[i].pos;
+      const bisector = bisectors[i];
+      line(cur.x, cur.y, cur.x + bisector.x * 50, cur.y + bisector.y * 50);
+    }
   } else {
     let hull = orderednodes.map(node => node.pos);
     fill(255);
@@ -150,7 +247,6 @@ function main() {
       vertex(point.x, point.y);
     }
     endShape(CLOSE);
-    // stroke(0, 0, 0, 128);
     stroke(0);
     strokeWeight(8);
     const h = i => hull[(i + hull.length) % hull.length];
@@ -171,12 +267,13 @@ function main() {
       hull = hull2;
     }
     for(let i = 0; i < hull.length; i++) {
-      // stroke(255, 0, 0);
-      // point(h(i).x, h(i).y);
       line(h(i).x, h(i).y, h(i + 1).x, h(i + 1).y);
-      // bezier(h(i).x, h(i).y, h(i + 1).x, h(i + 1).y, h(i + 1).x, h(i + 1).y, h(i + 2).x, h(i + 2).y);
     }
   }
+  for(const poly of polys) {
+    poly.draw();
+  }
+  // setTimeout(main, 300);
   requestAnimationFrame(main);
 }
 
